@@ -1,0 +1,126 @@
+---
+title: "PracticalML_Assignment"
+author: "Harikrishna Vemula"
+date: "2/10/2021"
+output:
+  html_document:
+    keep_md: yes
+---
+
+## Objective
+
+The goal of this project assignment is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. We can  use any of the other variables to predict with. We should create a report describing how we can built our model, and how can we used cross validation, think the expected out of sample error is, and why we made the choices. 
+
+## Data Source
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har.
+
+### 1) Data Load, Initialzing Variables and Data Cleaning
+
+
+```{r}
+library(knitr)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(corrplot)
+library(e1071)
+
+
+# configuring variables to store the required URLs 
+trainURL <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testURL  <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+# set datasets into variables
+trainingDS <- read.csv(url(trainURL))
+testingDS  <- read.csv(url(testURL))
+
+# create a partition with the training dataset 
+inTrain  <- createDataPartition(trainingDS$classe, p=0.7, list=FALSE)
+trainingDS <- trainingDS[inTrain, ]
+testingDS  <- trainingDS[-inTrain, ]
+dim(trainingDS)
+dim(testingDS)
+
+# sort out by removing near Zero  values
+NZValues <- nearZeroVar(trainingDS)
+trainingDS <- trainingDS[, -NZValues]
+testingDS  <- testingDS[, -NZValues]
+dim(trainingDS)
+dim(testingDS)
+
+# sort out by removing  NA values
+AllNA    <- sapply(trainingDS, function(x) mean(is.na(x))) > 0.95
+trainingDS <- trainingDS[, AllNA==FALSE]
+testingDS  <- testingDS[, AllNA==FALSE]
+dim(trainingDS)
+dim(testingDS)
+
+# remove identification only variables (columns 1 to 5)
+trainingDS <- trainingDS[, -(1:5)]
+testingDS  <- testingDS[, -(1:5)]
+
+dim(trainingDS)
+dim(testingDS)
+
+
+```
+
+### 2) Cross Validation the model
+
+```{r}
+
+# Decision Tree Model and Prediction
+library(rattle)
+DT_model<- train(classe ~. , data=trainingDS, method= "rpart")
+fancyRpartPlot(DT_model$finalModel)
+
+set.seed(21243)
+DT_prediction<- predict(DT_model, testingDS)
+confusionMatrix(table(DT_prediction, testingDS$classe))
+
+# Random Forest Model and Prediction
+set.seed(26817)
+RF_model<- train(classe ~. , data=trainingDS, method= "rf", ntree=100)
+RF_prediction<- predict(RF_model, testingDS)
+RF_cm<-confusionMatrix(table(RF_prediction, testingDS$classe))
+RF_cm
+
+#plot the graph
+plot(RF_cm$table, col=RF_cm$byClass, main="Random Forest Accuracy")
+
+# Gradient Boosting Model and Prediction
+set.seed(25621)
+gbm_model<- train(classe~., data=trainingDS, method="gbm", verbose= FALSE)
+gbm_model$finalmodel
+
+gbm_prediction<- predict(gbm_model, testingDS)
+gbm_cm<-confusionMatrix(table(gbm_prediction, testingDS$classe))
+gbm_cm
+
+RF_cm$overall
+
+gbm_cm$overall
+
+
+```
+
+### 3) Test data and Prediction
+
+```{r}
+predictTEST <- predict(RF_model, newdata=testingDS)
+predictTEST
+```
+
+### 4) Conclusion
+
+Random Forest model is more accurate than Gradient Boosting Model about 99% of accuracy level. 
